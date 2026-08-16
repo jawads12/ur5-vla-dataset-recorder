@@ -1,0 +1,47 @@
+dataset_recorder:
+  ros__parameters:
+    # Both cameras are expected to run at 30 FPS over USB 3.
+    recording_rate_hz: 20.0
+    output_root: "~/ur5_vla_dataset"
+
+    base_image_topic: "/base/camera/color/image_raw"
+    wrist_image_topic: "/wrist/camera/color/image_raw"
+    enable_depth: true
+    base_depth_topic: "/base/camera/aligned_depth_to_color/image_raw"
+    wrist_depth_topic: "/wrist/camera/aligned_depth_to_color/image_raw"
+    # RealSense 16UC1 depth normally represents millimetres.
+    depth_unit_m: 0.001
+    joint_state_topic: "/joint_states"
+    arm_command_topic: "/forward_position_controller/commands"
+    servo_status_topic: "/servo_node/status"
+
+    # Logitech physical buttons 9, 10, and 11. sensor_msgs/Joy uses
+    # zero-based indexes, therefore the corresponding indexes are 8, 9, 10.
+    enable_joystick_episode_controls: true
+    joy_topic: "/joy"
+    start_episode_button_index: 8
+    abort_episode_button_index: 9
+    save_success_button_index: 10
+
+    command_joint_order:
+      - shoulder_pan_joint
+      - shoulder_lift_joint
+      - elbow_joint
+      - wrist_1_joint
+      - wrist_2_joint
+      - wrist_3_joint
+
+    require_servo_status_zero: true
+    max_joint_state_age_s: 0.10
+    max_action_age_s: 0.10
+    max_image_age_s: 0.10
+    max_depth_age_s: 0.10
+    minimum_free_disk_gb: 20.0
+    jpeg_quality: 90
+    writer_queue_size: 60
+
+    # Enable only after confirming the gripper message types and topic names.
+    enable_gripper: false
+    gripper_state_topic: "/gripper/joint_states"
+    gripper_command_topic: "/gripper_controller/command"
+    gripper_joint_name: "gripper_joint"

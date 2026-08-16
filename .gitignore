@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+build/
+install/
+log/
+
+.idea/
+.vscode/
+.DS_Store
+
+# Recorded demonstrations are large and may contain sensitive lab data.
+ur5_vla_dataset/
+*.db3
+*.mcap
+*.bag
+
