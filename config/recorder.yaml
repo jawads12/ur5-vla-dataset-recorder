@@ -40,8 +40,9 @@ dataset_recorder:
     jpeg_quality: 90
     writer_queue_size: 60
 
-    # Enable only after confirming the gripper message types and topic names.
-    enable_gripper: false
-    gripper_state_topic: "/gripper/joint_states"
-    gripper_command_topic: "/gripper_controller/command"
-    gripper_joint_name: "gripper_joint"
+    # Pneumatic gripper convention: 0.0 = closed, 1.0 = open.
+    # State is the last command confirmed successful by the UR SetIO service;
+    # it is an estimate because this gripper has no position sensor.
+    enable_gripper: true
+    gripper_state_topic: "/gripper/state"
+    gripper_command_topic: "/gripper/command"

@@ -9,9 +9,9 @@ This ROS 2 Humble package records synchronized UR5 demonstrations into a stable 
 - `/joint_states`, reordered by joint name
 - `/forward_position_controller/commands`, the final MoveIt Servo arm action
 - `/servo_node/status`
-- optional gripper state and command
+- normalized pneumatic-gripper state and command
 
-The current default is 20 Hz with both RealSense cameras connected over USB 3. RGB is stored as JPEG; aligned metric depth is stored losslessly as 16-bit PNG.
+The current default is 20 Hz with both RealSense cameras connected over USB 3. RGB is stored as JPEG; aligned metric depth is stored losslessly as 16-bit PNG. The pneumatic-gripper convention is `0.0 = closed` and `1.0 = open`.
 
 ## Install dependencies
 
@@ -86,6 +86,34 @@ The node currently expects `std_msgs/msg/Int8` on that topic.
 
 ## Run
 
+Start the repository-maintained joystick mapper instead of the older standalone
+script:
+
+```bash
+ros2 run ur5_vla_dataset_recorder logitech_servo
+```
+
+The mapper preserves the original joystick motion and UR digital-output
+behavior. After an OPEN or CLOSE `SetIO` request succeeds, it publishes both:
+
+```text
+/gripper/command  std_msgs/msg/Float64
+/gripper/state    std_msgs/msg/Float64
+```
+
+`/gripper/state` is the last successfully confirmed command, not a measured
+finger position: the current pneumatic gripper has no position sensor. Operate
+the gripper once before starting the recorder so its initial state is known.
+
+Verify the values:
+
+```bash
+ros2 topic echo /gripper/command
+ros2 topic echo /gripper/state
+```
+
+Then start the recorder:
+
 ```bash
 ros2 launch ur5_vla_dataset_recorder recorder.launch.py
 ```
@@ -157,8 +185,8 @@ observation.images.base      relative JPEG path
 observation.images.wrist     relative JPEG path
 observation.depth.base       relative lossless 16-bit PNG path
 observation.depth.wrist      relative lossless 16-bit PNG path
-observation.state            six actual UR5 joints; optional gripper appended
-action                       six absolute joint targets; optional gripper appended
+observation.state            six actual UR5 joints + estimated binary gripper state
+action                       six absolute joint targets + binary gripper command
 task                         episode instruction
 episode_time_s               monotonic time from episode start
 source timestamps            camera and joint message timestamps
@@ -168,6 +196,10 @@ valid                        true for accepted frames
 ```
 
 Raw `/joy` values are intentionally not used as the learning action. The saved arm action is the final joint-position target produced by MoveIt Servo.
+
+The gripper values make each state and action seven-dimensional. The mapper
+publishes them at 20 Hz after the first successfully confirmed open or close
+operation so the recorder freshness gate remains meaningful.
 
 Depth PNG values are raw `uint16`. With the default D435/D435i configuration,
 convert a valid pixel to metres using:
@@ -189,6 +221,7 @@ first test episode with `du -sh ~/ur5_vla_dataset`.
 - Recording cannot start without all mandatory fresh streams and a non-empty task.
 - With the default configuration, Servo status must be `0`.
 - Missing joints, duplicate joints, wrong command length, NaN, infinity, stale messages, writer errors, and low disk space prevent or drop frames.
+- Recording cannot start until one gripper operation has succeeded and fresh normalized gripper state/command values are available.
 - Disk writing occurs on a bounded background queue.
 - The recorder never switches controllers, starts Servo, or commands the robot.
 - Always stop an episode before saving or discarding it.

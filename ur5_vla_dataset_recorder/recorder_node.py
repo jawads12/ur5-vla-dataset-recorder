@@ -13,7 +13,12 @@ import rclpy
 import numpy as np
 from cv_bridge import CvBridge
 from rclpy.node import Node
-from rclpy.qos import qos_profile_sensor_data
+from rclpy.qos import (
+    DurabilityPolicy,
+    QoSProfile,
+    ReliabilityPolicy,
+    qos_profile_sensor_data,
+)
 from sensor_msgs.msg import Image, JointState, Joy
 from std_msgs.msg import Float64, Float64MultiArray, Int8
 from std_srvs.srv import Trigger
@@ -21,6 +26,7 @@ from std_srvs.srv import Trigger
 from .core import (
     UR5_JOINT_ORDER,
     ValidationError,
+    normalized_gripper_value,
     reorder_command,
     reorder_joint_positions,
 )
@@ -89,10 +95,9 @@ class DatasetRecorder(Node):
             "start_episode_button_index": 8,
             "abort_episode_button_index": 9,
             "save_success_button_index": 10,
-            "enable_gripper": False,
-            "gripper_state_topic": "/gripper/joint_states",
-            "gripper_command_topic": "/gripper_controller/command",
-            "gripper_joint_name": "gripper_joint",
+            "enable_gripper": True,
+            "gripper_state_topic": "/gripper/state",
+            "gripper_command_topic": "/gripper/command",
             "require_servo_status_zero": True,
             "max_joint_state_age_s": 0.10,
             "max_action_age_s": 0.10,
@@ -162,17 +167,22 @@ class DatasetRecorder(Node):
                 qos_profile_sensor_data,
             )
         if self.get_parameter("enable_gripper").value:
+            gripper_qos = QoSProfile(
+                depth=1,
+                reliability=ReliabilityPolicy.RELIABLE,
+                durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            )
             self.create_subscription(
-                JointState,
+                Float64,
                 self.get_parameter("gripper_state_topic").value,
                 cache("gripper_state"),
-                qos_profile_sensor_data,
+                gripper_qos,
             )
             self.create_subscription(
                 Float64,
                 self.get_parameter("gripper_command_topic").value,
                 cache("gripper_command"),
-                10,
+                gripper_qos,
             )
 
     def _create_services(self) -> None:
@@ -345,7 +355,15 @@ class DatasetRecorder(Node):
             "joint_state_topic": self.get_parameter("joint_state_topic").value,
             "arm_command_topic": self.get_parameter("arm_command_topic").value,
             "gripper_enabled": bool(self.get_parameter("enable_gripper").value),
-            "action_semantics": "absolute_joint_position_target",
+            "gripper_state_topic": self.get_parameter("gripper_state_topic").value,
+            "gripper_command_topic": self.get_parameter("gripper_command_topic").value,
+            "gripper_state_semantics": "last_successful_pneumatic_command_estimate",
+            "gripper_action_semantics": "normalized_binary_command",
+            "gripper_closed_value": 0.0,
+            "gripper_open_value": 1.0,
+            "action_semantics": (
+                "arm_absolute_joint_position_target_plus_gripper_binary_command"
+            ),
             "joint_units": "radian",
         }
         self.writer = EpisodeWriter(
@@ -436,14 +454,19 @@ class DatasetRecorder(Node):
 
             observation_state = list(actual)
             action = list(command)
+            gripper_state = None
+            gripper_command = None
             if self.get_parameter("enable_gripper").value:
-                gripper_msg = snapshot["gripper_state"][0]
-                gripper_name = str(self.get_parameter("gripper_joint_name").value)
-                gripper_map = dict(zip(gripper_msg.name, gripper_msg.position))
-                if gripper_name not in gripper_map:
-                    raise ValidationError(f"missing gripper joint {gripper_name}")
-                observation_state.append(float(gripper_map[gripper_name]))
-                action.append(float(snapshot["gripper_command"][0].data))
+                gripper_state = normalized_gripper_value(
+                    snapshot["gripper_state"][0].data,
+                    "gripper state",
+                )
+                gripper_command = normalized_gripper_value(
+                    snapshot["gripper_command"][0].data,
+                    "gripper command",
+                )
+                observation_state.append(gripper_state)
+                action.append(gripper_command)
 
             receive_ages = {
                 name: round(now - snapshot[name][1], 6)
@@ -456,6 +479,8 @@ class DatasetRecorder(Node):
                 "task": str(self.get_parameter("task").value),
                 "observation.state": observation_state,
                 "action": action,
+                "gripper.state": gripper_state,
+                "gripper.command": gripper_command,
                 "joint_state_source_stamp_ns": message_stamp_ns(joint_msg),
                 "base_image_source_stamp_ns": message_stamp_ns(base_msg),
                 "wrist_image_source_stamp_ns": message_stamp_ns(wrist_msg),
