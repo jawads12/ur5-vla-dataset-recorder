@@ -5,6 +5,7 @@ import pytest
 from ur5_vla_dataset_recorder.core import (
     UR5_JOINT_ORDER,
     ValidationError,
+    normalized_gripper_value,
     reorder_command,
     reorder_joint_positions,
 )
@@ -33,3 +34,12 @@ def test_non_finite_command_is_rejected():
     with pytest.raises(ValidationError, match="NaN"):
         reorder_command(values, UR5_JOINT_ORDER)
 
+
+def test_normalized_gripper_value_accepts_binary_states():
+    assert normalized_gripper_value(0.0, "gripper") == 0.0
+    assert normalized_gripper_value(1.0, "gripper") == 1.0
+
+
+def test_normalized_gripper_value_rejects_out_of_range_state():
+    with pytest.raises(ValidationError, match="range"):
+        normalized_gripper_value(1.5, "gripper")

@@ -44,15 +44,15 @@ controller should be active at a time.
 - Base aligned depth image
 - Wrist aligned depth image
 - Six measured UR5 joint positions, reordered by joint name
-- Optional actual gripper state
+- Estimated pneumatic-gripper state from the last successful SetIO command
 - Natural-language task instruction
 - Source timestamps and receive-age diagnostics
 
 ## Recorded action
 
 The primary action is the six-element absolute joint-position target from
-`/forward_position_controller/commands`, optionally followed by a gripper
-command.
+`/forward_position_controller/commands`, followed by a normalized binary
+gripper command.
 
 Raw joystick axes are not the learning action. MoveIt Servo changes the human
 request through coordinate mapping, differential inverse kinematics, limits,
@@ -83,7 +83,12 @@ name field.
 
 ## Episode controls
 
-The joystick controls are rising-edge triggered:
+The pneumatic gripper uses `0.0 = closed` and `1.0 = open`. Because it has no
+position sensor, `/gripper/state` is explicitly an estimate of the last command
+confirmed successful by the UR SetIO service. Both state and command are
+republished at 20 Hz after initialization.
+
+The episode joystick controls are rising-edge triggered:
 
 - Physical button 9 / `buttons[8]`: start a new episode
 - Physical button 10 / `buttons[9]`: abort and permanently discard the episode
@@ -118,4 +123,3 @@ camera observations + current robot state + task
 
 Training and deployment must use the same joint order, units, camera keys,
 gripper convention, normalization, and action meaning.
-

@@ -99,11 +99,21 @@ ros2 run joy joy_node --ros-args \
   -p autorepeat_rate:=50.0
 ```
 
-In another terminal:
+In another terminal, use the mapper installed by this repository:
 
 ```bash
-python3 ~/logitech_servo.py
+ros2 run ur5_vla_dataset_recorder logitech_servo
 ```
+
+Open or close the gripper once, then verify its normalized dataset streams:
+
+```bash
+ros2 topic echo /gripper/command --once
+ros2 topic echo /gripper/state --once
+```
+
+The convention is `0.0 = closed`, `1.0 = open`. State is the last successful
+command estimate because the pneumatic gripper has no position sensor.
 
 ## 5. Start the recorder
 
@@ -156,4 +166,3 @@ ros2 control switch_controllers \
 
 Never replay recorded commands or a rosbag while a physical command controller
 is active unless a dedicated, validated replay tool explicitly owns that motion.
-
