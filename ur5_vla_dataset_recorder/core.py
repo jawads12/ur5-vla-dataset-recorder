@@ -55,10 +55,17 @@ def require_finite(values: Iterable[float], label: str) -> None:
         raise ValidationError(f"{label} contains NaN or infinity")
 
 
+def normalized_gripper_value(value: float, label: str) -> float:
+    result = float(value)
+    require_finite([result], label)
+    if not 0.0 <= result <= 1.0:
+        raise ValidationError(f"{label} must be in the range [0.0, 1.0]")
+    return result
+
+
 def stream_ages(now: float, receive_times: Mapping[str, float]) -> dict[str, float]:
     return {name: max(0.0, now - stamp) for name, stamp in receive_times.items()}
 
 
 def stale_streams(ages: Mapping[str, float], limits: Mapping[str, float]) -> list[str]:
     return [name for name, age in ages.items() if age > limits[name]]
-

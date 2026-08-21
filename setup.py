@@ -24,7 +24,7 @@ setup(
     entry_points={
         "console_scripts": [
             "dataset_recorder = ur5_vla_dataset_recorder.recorder_node:main",
+            "logitech_servo = ur5_vla_dataset_recorder.logitech_servo_node:main",
         ],
     },
 )
-
